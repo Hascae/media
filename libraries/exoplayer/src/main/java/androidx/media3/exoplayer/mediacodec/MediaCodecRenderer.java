@@ -661,7 +661,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
   }
 
   @Nullable
-  protected final MediaFormat getCodecOutputMediaFormat() {
+  public final MediaFormat getCodecOutputMediaFormat() {
     return codecOutputMediaFormat;
   }
 
