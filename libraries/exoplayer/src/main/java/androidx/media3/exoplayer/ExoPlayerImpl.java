@@ -83,6 +83,7 @@ import androidx.media3.common.TrackGroup;
 import androidx.media3.common.TrackSelectionParameters;
 import androidx.media3.common.Tracks;
 import androidx.media3.common.VideoFrameProcessor;
+import androidx.media3.common.VideoListener;
 import androidx.media3.common.VideoSize;
 import androidx.media3.common.text.Cue;
 import androidx.media3.common.text.CueGroup;
@@ -127,6 +128,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArraySet;
+import java.util.concurrent.Executor;
 import java.util.concurrent.TimeoutException;
 
 /** The default implementation of {@link ExoPlayer}. */
@@ -241,6 +243,7 @@ import java.util.concurrent.TimeoutException;
   private int maskingWindowIndex;
   private int maskingPeriodIndex;
   private long maskingWindowPositionMs;
+  private Executor workerQueue;
 
   @SuppressLint("HandlerLeak")
   @SuppressWarnings("deprecation") // Control flow for old volume commands
@@ -535,6 +538,11 @@ import java.util.concurrent.TimeoutException;
   public @PlaybackSuppressionReason int getPlaybackSuppressionReason() {
     verifyApplicationThread();
     return playbackInfo.playbackSuppressionReason;
+  }
+
+  @Override
+  public void setWorkerQueue(Executor dispatchQueue) {
+    workerQueue = dispatchQueue;
   }
 
   @Override
@@ -2737,7 +2745,11 @@ import java.util.concurrent.TimeoutException;
       }
       if (this.videoOutput == ownedSurface) {
         // We're replacing a surface that we are responsible for releasing.
-        ownedSurface.release();
+        try {
+          ownedSurface.release();
+        } catch (Throwable e) {
+
+        }
         ownedSurface = null;
       }
     }
@@ -2777,10 +2789,19 @@ import java.util.concurrent.TimeoutException;
   private void maybeNotifySurfaceSizeChanged(int width, int height) {
     if (width != surfaceSize.getWidth() || height != surfaceSize.getHeight()) {
       surfaceSize = new Size(width, height);
-      listeners.sendEvent(
-          EVENT_SURFACE_SIZE_CHANGED, listener -> listener.onSurfaceSizeChanged(width, height));
-      sendRendererMessage(
-          TRACK_TYPE_VIDEO, MSG_SET_VIDEO_OUTPUT_RESOLUTION, new Size(width, height));
+      if (workerQueue != null) {
+          workerQueue.execute(() -> {
+              listeners.sendEvent(
+                      EVENT_SURFACE_SIZE_CHANGED, listener -> listener.onSurfaceSizeChanged(width, height));
+              sendRendererMessage(
+                      TRACK_TYPE_VIDEO, MSG_SET_VIDEO_OUTPUT_RESOLUTION, new Size(width, height));
+          });
+      } else {
+            listeners.sendEvent(
+                    EVENT_SURFACE_SIZE_CHANGED, listener -> listener.onSurfaceSizeChanged(width, height));
+            sendRendererMessage(
+                    TRACK_TYPE_VIDEO, MSG_SET_VIDEO_OUTPUT_RESOLUTION, new Size(width, height));
+      }
     }
   }
 
@@ -3244,24 +3265,73 @@ import java.util.concurrent.TimeoutException;
 
     @Override
     public void onSurfaceTextureAvailable(SurfaceTexture surfaceTexture, int width, int height) {
+      if (workerQueue != null) {
+        workerQueue.execute(() -> {
+          onSurfaceTextureAvailableInternal(surfaceTexture, width, height);
+        });
+      } else {
+        onSurfaceTextureAvailableInternal(surfaceTexture, width, height);
+      }
+    }
+
+    public void onSurfaceTextureAvailableInternal(SurfaceTexture surfaceTexture, int width, int height) {
       setSurfaceTextureInternal(surfaceTexture);
       maybeNotifySurfaceSizeChanged(width, height);
     }
 
     @Override
     public void onSurfaceTextureSizeChanged(SurfaceTexture surfaceTexture, int width, int height) {
+      if (workerQueue != null) {
+        workerQueue.execute(() -> {
+          onSurfaceTextureSizeChangedInternal(surfaceTexture, width, height);
+        });
+      } else {
+        onSurfaceTextureSizeChangedInternal(surfaceTexture, width,  height);
+      }
+    }
+
+
+    public void onSurfaceTextureSizeChangedInternal(SurfaceTexture surfaceTexture, int width, int height) {
       maybeNotifySurfaceSizeChanged(width, height);
     }
 
     @Override
     public boolean onSurfaceTextureDestroyed(SurfaceTexture surfaceTexture) {
+      for (VideoListener videoListener : videoListeners) {
+        if (videoListener.onSurfaceDestroyed(surfaceTexture)) {
+          return false;
+        }
+      }
+      if (workerQueue != null) {
+        workerQueue.execute(() -> {
+          onSurfaceTextureDestroyedInternal(surfaceTexture);
+        });
+      } else {
+        onSurfaceTextureDestroyedInternal(surfaceTexture);
+      }
+      return true;
+    }
+
+    public void onSurfaceTextureDestroyedInternal(SurfaceTexture surfaceTexture) {
       setVideoOutputInternal(/* videoOutput= */ null);
       maybeNotifySurfaceSizeChanged(/* width= */ 0, /* height= */ 0);
-      return true;
     }
 
     @Override
     public void onSurfaceTextureUpdated(SurfaceTexture surfaceTexture) {
+      if (workerQueue != null) {
+        workerQueue.execute(() -> {
+          onSurfaceTextureUpdatedInternal(surfaceTexture);
+        });
+      } else {
+        onSurfaceTextureUpdatedInternal(surfaceTexture);
+      }
+    }
+
+    public void onSurfaceTextureUpdatedInternal(SurfaceTexture surfaceTexture) {
+      for (VideoListener videoListener : videoListeners) {
+        videoListener.onSurfaceTextureUpdated(surfaceTexture);
+      }
       // Do nothing.
     }
 
@@ -3512,5 +3582,19 @@ import java.util.concurrent.TimeoutException;
             Player.PLAYBACK_SUPPRESSION_REASON_UNSUITABLE_AUDIO_OUTPUT);
       }
     }
+  }
+
+  /*  */
+
+  private final ArrayList<VideoListener> videoListeners = new ArrayList<>();
+
+  @Override
+  public void addVideoListener(VideoListener listener) {
+    videoListeners.add(listener);
+  }
+
+  @Override
+  public void removeVideoListener(VideoListener listener) {
+    videoListeners.remove(listener);
   }
 }

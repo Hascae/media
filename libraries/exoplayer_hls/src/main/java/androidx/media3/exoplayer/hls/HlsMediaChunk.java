@@ -457,7 +457,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
         initDataSource,
         initDataSpec,
         initSegmentEncrypted,
-        /* initializeTimestampAdjuster= */ false);
+        /* initializeTimestampAdjuster= */ true);
     nextLoadPosition = 0;
     initDataLoadRequired = false;
   }
@@ -512,6 +512,8 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
       } finally {
         nextLoadPosition = (int) (input.getPosition() - dataSpec.position);
       }
+    } catch (Exception e) {
+
     } finally {
       DataSourceUtil.closeQuietly(dataSource);
     }
