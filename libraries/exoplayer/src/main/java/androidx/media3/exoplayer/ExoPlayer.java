@@ -44,6 +44,7 @@ import androidx.media3.common.Player;
 import androidx.media3.common.PriorityTaskManager;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.Tracks;
+import androidx.media3.common.VideoListener;
 import androidx.media3.common.VideoSize;
 import androidx.media3.common.text.CueGroup;
 import androidx.media3.common.util.Clock;
@@ -76,6 +77,7 @@ import com.google.common.base.Function;
 import com.google.common.base.Supplier;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.List;
+import java.util.concurrent.Executor;
 
 /**
  * An extensible media player that plays {@link MediaSource}s. Instances can be obtained from {@link
@@ -1186,7 +1188,7 @@ public interface ExoPlayer extends Player {
       return new ExoPlayerImpl(/* builder= */ this, /* wrappingPlayer= */ null);
     }
 
-    /* package */ SimpleExoPlayer buildSimpleExoPlayer() {
+    public SimpleExoPlayer buildSimpleExoPlayer() {
       checkState(!buildCalled);
       buildCalled = true;
       return new SimpleExoPlayer(/* builder= */ this);
@@ -1832,4 +1834,17 @@ public interface ExoPlayer extends Player {
    */
   @UnstableApi
   boolean isTunnelingEnabled();
+
+  default void setWorkerQueue(Executor dispatchQueue) {
+
+  }
+
+  default void addVideoListener(VideoListener listener) {
+
+  }
+
+  default void removeVideoListener(VideoListener listener) {
+
+  }
+
 }
