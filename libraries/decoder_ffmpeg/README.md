@@ -1,7 +1,7 @@
 # FFmpeg decoder module
 
-The FFmpeg module provides `FfmpegAudioRenderer`, which uses FFmpeg for decoding
-and can render audio encoded in a variety of formats.
+The FFmpeg module provides `FfmpegAudioRenderer` and `ExperimentalFfmpegVideoRenderer`, which uses FFmpeg for decoding
+and can render audio & video encoded in a variety of formats.
 
 ## License note
 
@@ -49,41 +49,64 @@ HOST_PLATFORM="linux-x86_64"
 ANDROID_ABI=21
 ```
 
+*   Configure the decoders to include. See the [Supported formats][] page for
+    details of the available decoders, and which formats they support.
+
+```
+ENABLED_DECODERS=(vorbis opus flac h264 hevc)
+```
+
 *   Fetch FFmpeg and checkout an appropriate branch. We cannot guarantee
     compatibility with all versions of FFmpeg. We currently recommend version
     6.0:
 
-```
-cd "<preferred location for ffmpeg>" && \
-git clone git://source.ffmpeg.org/ffmpeg && \
-cd ffmpeg && \
-git checkout release/6.0 && \
-FFMPEG_PATH="$(pwd)"
-```
-
-* Configure the decoders to include. See the [Supported formats][] page for
-  details of the available decoders, and which formats they support.
-
-```
-ENABLED_DECODERS=(vorbis opus flac)
-```
-
-*   Add a link to the FFmpeg source code in the FFmpeg module `jni` directory.
-
-```
+```shell
 cd "${FFMPEG_MODULE_PATH}/jni" && \
-ln -s "$FFMPEG_PATH" ffmpeg
+git clone git://source.ffmpeg.org/ffmpeg --branch=release/6.0 --depth=1
 ```
 
-* Execute `build_ffmpeg.sh` to build FFmpeg for `armeabi-v7a`, `arm64-v8a`,
-  `x86` and `x86_64`. The script can be edited if you need to build for
-  different architectures:
+*   Execute `build_ffmpeg.sh` to build FFmpeg for `armeabi-v7a`, `arm64-v8a`,
+    `x86` and `x86_64`. The script can be edited if you need to build for
+    different architectures:
 
 ```
 cd "${FFMPEG_MODULE_PATH}/jni" && \
 ./build_ffmpeg.sh \
   "${FFMPEG_MODULE_PATH}" "${NDK_PATH}" "${HOST_PLATFORM}" "${ANDROID_ABI}" "${ENABLED_DECODERS[@]}"
 ```
+
+Attempt to Rotate ``AVPixelFormat::AV_PIX_FMT_YUV420P`` & Copy the Pixels to ``ANativeWindow`` Buffer. The `libyuv` is also required. 
+
+* Fetch `libyuv` and checkout an appropriate branch:
+
+```
+cd "<preferred location for libyuv>" && \
+git clone https://chromium.googlesource.com/libyuv/libyuv && \
+YUV_PATH="$(pwd)"
+```
+
+*   Add a link to the `libyuv` source code in the `libyuv` module `jni` directory.
+
+```
+cd "${FFMPEG_MODULE_PATH}/jni" && \
+ln -s "$YUV_PATH" libyuv
+```
+
+* Execute `build_yuv.sh` to build libyuv for `armeabi-v7a`, `arm64-v8a`,
+  `x86` and `x86_64`. The script can be edited if you need to build for
+  different architectures:
+
+```
+cd "${FFMPEG_MODULE_PATH}/jni" && \
+./build_yuv.sh \
+  "${FFMPEG_MODULE_PATH}" "${NDK_PATH}" "${ANDROID_ABI}"
+```
+
+* [Install CMake][]
+
+Having followed these steps, gradle will build the module automatically when run
+on the command line or via Android Studio, using [CMake][] and [Ninja][] to
+configure and build the module's [JNI wrapper library][].
 
 ## Build instructions (Windows)
 
@@ -121,8 +144,26 @@ a custom track selector the choice of `Renderer` is up to your implementation,
 so you need to make sure you are passing an `FfmpegAudioRenderer` to the player,
 then implement your own logic to use the renderer for a given track.
 
+## Known limitations of the experimental video renderer
+
+`ExperimentalFfmpegVideoRenderer` is built on the 1-input / 1-output
+`SimpleDecoder` model. FFmpeg video decoders keep an internal reorder buffer for
+streams with B-frames (e.g. most H.264/HEVC content), so frames decoded from
+such streams are emitted one input sample later and the frames still buffered
+inside FFmpeg at end-of-stream are not flushed. Practical impact:
+
+*   Streams without B-frames (e.g. IPPP H.264, MPEG-4, ProRes, VP8/VP9, AV1)
+    play correctly.
+*   Streams with B-frames may lose the last few frames at the end of playback
+    and can exhibit minor timestamp jitter. Decoded frame content is always
+    matched to its own PTS, so playback stays in order.
+
 [top level README]: ../../README.md
 [Android NDK]: https://developer.android.com/tools/sdk/ndk/index.html
+[Ninja]: https://ninja-build.org/
+[Install CMake]: https://developer.android.com/studio/projects/install-ndk
+[CMake]: https://cmake.org/
+[JNI wrapper library]: src/main/jni/ffmpeg_jni.cc
 [ExoPlayer issue 2781]: https://github.com/google/ExoPlayer/issues/2781
 [Supported formats]: https://developer.android.com/media/media3/exoplayer/supported-formats#ffmpeg-library
 
