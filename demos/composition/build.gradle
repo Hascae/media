@@ -19,7 +19,7 @@ apply plugin: 'kotlin-android'
 apply plugin: 'org.jetbrains.kotlin.plugin.compose'
 
 android {
-    namespace 'androidx.media3.demo.composition'
+    namespace = 'androidx.media3.demo.composition'
 
     compileSdk project.ext.compileSdkVersion
 

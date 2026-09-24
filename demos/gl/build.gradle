@@ -15,7 +15,7 @@ apply from: '../../constants.gradle'
 apply plugin: 'com.android.application'
 
 android {
-    namespace 'androidx.media3.demo.gl'
+    namespace = 'androidx.media3.demo.gl'
 
     compileSdk project.ext.compileSdkVersion
 

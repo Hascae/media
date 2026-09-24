@@ -30,7 +30,7 @@ android {
     }
 
     lintOptions {
-        checkTestSources true
+        checkTestSources = true
     }
 
     compileOptions {
@@ -42,6 +42,6 @@ android {
         unitTests.all {
             jvmArgs "-Xmx2g"
         }
-        unitTests.includeAndroidResources true
+        unitTests.includeAndroidResources = true
     }
 }

@@ -16,7 +16,7 @@ apply plugin: 'com.android.application'
 apply plugin: 'kotlin-android'
 
 android {
-    namespace 'androidx.media3.demo.session.automotive'
+    namespace = 'androidx.media3.demo.session.automotive'
 
     compileSdk project.ext.compileSdkVersion
 

@@ -16,7 +16,7 @@ apply plugin: 'com.android.application'
 apply plugin: 'kotlin-android'
 
 android {
-    namespace 'androidx.media3.testapp.controller'
+    namespace = 'androidx.media3.testapp.controller'
 
     compileSdk project.ext.compileSdkVersion
 

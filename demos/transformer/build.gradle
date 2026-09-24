@@ -17,7 +17,7 @@ apply from: '../../constants.gradle'
 apply plugin: 'com.android.application'
 
 android {
-    namespace 'androidx.media3.demo.transformer'
+    namespace = 'androidx.media3.demo.transformer'
 
     compileSdk project.ext.compileSdkVersion
 
