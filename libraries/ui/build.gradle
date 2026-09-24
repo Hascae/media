@@ -13,7 +13,7 @@
 // limitations under the License.
 apply from: "$gradle.ext.androidxMediaSettingsDir/common_library_config.gradle"
 
-android.buildTypes.debug.testCoverageEnabled true
+android.buildTypes.debug.testCoverageEnabled = true
 
 android {
     namespace = 'androidx.media3.ui'
